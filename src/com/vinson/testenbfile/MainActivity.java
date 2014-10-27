@@ -9,15 +9,32 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.StringReader;
+import java.io.StringWriter;
+import java.util.ArrayList;
 import java.util.Enumeration;
+import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import java.util.zip.ZipOutputStream;
+
+import javax.xml.transform.OutputKeys;
+import javax.xml.transform.Source;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerConfigurationException;
+import javax.xml.transform.TransformerException;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.TransformerFactoryConfigurationError;
+import javax.xml.transform.stream.StreamResult;
+import javax.xml.transform.stream.StreamSource;
+
+import org.xmlpull.v1.XmlSerializer;
 
 import android.app.Activity;
 import android.os.Bundle;
 import android.os.Environment;
 import android.util.Log;
+import android.util.Xml;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.widget.Button;
@@ -31,8 +48,12 @@ public class MainActivity extends Activity {
 	private static final String SAVE_PATH = Environment.getExternalStorageDirectory().getAbsolutePath() + "/IClass";
 	private static final String SAVE_FILE =
 			Environment.getExternalStorageDirectory().getAbsolutePath() + "/tmp/save.zip";
+
+	private static final String XML_FILE =
+			Environment.getExternalStorageDirectory().getAbsolutePath() + "/tmp/info.xml";
 	private Button mLoadButton;
 	private Button mSaveButton;
+	private Button mCreateButton;
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
@@ -59,6 +80,21 @@ public class MainActivity extends Activity {
 			@Override
 			public void onClick(View arg0) {
 				onSaveClick();
+			}
+		});
+
+		mCreateButton = (Button) findViewById(R.id.create_button);
+		mCreateButton.setOnClickListener(new OnClickListener() {
+
+			@Override
+			public void onClick(View arg0) {
+				ArrayList<Message> mesages = new ArrayList<Message>();
+				for (int i = 0; i < 5; ++i) {
+					Message message = new Message();
+					mesages.add(message);
+				}
+
+				createXmlFile(mesages);
 			}
 		});
 	}
@@ -141,4 +177,92 @@ public class MainActivity extends Activity {
 		}
 	}
 
+	private void createXmlFile(List<Message> messages) {
+
+		XmlSerializer serializer = Xml.newSerializer();
+		StringWriter writer = new StringWriter();
+		try {
+			serializer.setOutput(writer);
+			serializer.startDocument("UTF-8", true);
+			serializer.startTag("", "messages");
+			serializer.attribute("", "number", String.valueOf(messages.size()));
+			for (Message msg : messages) {
+				serializer.startTag("", "message");
+				serializer.attribute("", "date", msg.getDate());
+				serializer.startTag("", "title");
+				serializer.text(msg.getTitle());
+				serializer.endTag("", "title");
+				serializer.startTag("", "url");
+				serializer.text(msg.getLink());
+				serializer.endTag("", "url");
+				serializer.startTag("", "body");
+				serializer.text(msg.getDescription());
+				serializer.endTag("", "body");
+				serializer.endTag("", "message");
+			}
+			serializer.endTag("", "messages");
+			serializer.endDocument();
+
+			File file = new File(XML_FILE);
+			if (file.exists()) {
+				file.delete();
+			}
+			file.createNewFile();
+			FileOutputStream fouFileOutputStream = new FileOutputStream(file);
+			fouFileOutputStream.write(format(writer.toString()).getBytes());
+			fouFileOutputStream.flush();
+			fouFileOutputStream.close();
+		} catch (Exception e) {
+			throw new RuntimeException(e);
+		}
+
+	}
+
+	public String format(String unformattedXml) {
+		// Instantiate transformer input
+		Source xmlInput = new StreamSource(new StringReader(unformattedXml));
+		StreamResult xmlOutput = new StreamResult(new StringWriter());
+
+		// Configure transformer
+		Transformer transformer;
+		try {
+			transformer = TransformerFactory.newInstance().newTransformer();
+
+			transformer.setOutputProperty(OutputKeys.INDENT, "yes");
+			transformer.setOutputProperty("{http://xml.apache.org/xslt}indent-amount", "2");
+			transformer.transform(xmlInput, xmlOutput);
+
+			// Print the pretty XML
+			System.out.println(xmlOutput.getWriter().toString());
+			return xmlOutput.getWriter().toString();
+		} catch (TransformerConfigurationException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (TransformerFactoryConfigurationError e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (TransformerException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		return "";
+	}
+
+	private class Message {
+		public String getDate() {
+			return "1234";
+		}
+
+		public String getDescription() {
+			return "3213123";
+		}
+
+		public String getLink() {
+			return "rwrefwere";
+		}
+
+		public String getTitle() {
+			return "fdsfsd";
+		}
+	}
 }
